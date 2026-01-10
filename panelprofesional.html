@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Profesional - Dra. Ribotta</title>
+    <link rel="stylesheet" href="estilo.css">
+    <style>
+        /* Estilos específicos para las tarjetas del panel */
+        .turno-card {
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid #eef2f6;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            display: flex;
+            gap: 25px;
+            align-items: flex-start;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        /* Estilos para los estados */
+        .status-select {
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 12px;
+            outline: none;
+            width: 100%;
+        }
+
+        .status-pendiente { background: #fef9c3; color: #a16207; border-color: #fde047; }
+        .status-atendido { background: #dcfce7; color: #15803d; border-color: #86efac; }
+        .status-ausente { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+
+        .paciente-info {
+            flex: 0 0 220px;
+            border-right: 2px solid #f1f5f9;
+            padding-right: 20px;
+        }
+
+        .diagnostico-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .notas-evolucion {
+            width: 100%;
+            min-height: 120px;
+            padding: 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #f8fafc;
+            font-family: inherit;
+            font-size: 0.95rem;
+            resize: vertical;
+        }
+
+        .btn-eliminar-pro {
+            background: #f1f5f9;
+            color: #64748b;
+            border: none;
+            width: 35px;
+            height: 35px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .btn-eliminar-pro:hover {
+            background: #e11d48;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .turno-card { flex-direction: column; }
+            .paciente-info { border-right: none; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="hero-bg"></div>
+    <header>
+        <div class="brand"><h2>Agenda Médica</h2><p>Dra. Ribotta Noelia</p></div>
+        <a href="index.html" class="btn-volver">Cerrar Sesión</a>
+    </header>
+
+    <div class="container" style="max-width: 950px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <h3 id="fecha-txt" style="color: var(--primary-dark); margin:0; text-transform: capitalize;"></h3>
+            <input type="date" id="admin-date" style="width: auto; margin:0;">
+        </div>
+        
+        <div id="lista"></div>
+    </div>
+
+    <script>
+        const adminDate = document.getElementById('admin-date');
+        const lista = document.getElementById('lista');
+
+        function cargar(fecha) {
+            const [y, m, d] = fecha.split('-').map(Number);
+            const fechaObj = new Date(y, m-1, d);
+            document.getElementById('fecha-txt').textContent = fechaObj.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+            const db = JSON.parse(localStorage.getItem('turnos_medicos_v2')) || {};
+            const turnos = db[fecha] || [];
+            
+            if (turnos.length === 0) {
+                lista.innerHTML = `<div style="text-align:center; padding: 60px; color: #94a3b8;">No hay turnos para esta fecha.</div>`;
+                return;
+            }
+
+            let html = "";
+            turnos.sort((a,b) => a.hora.localeCompare(b.hora)).forEach(t => {
+                const idStatus = `s-${t.hora.replace(':', '')}`;
+                const claseEstado = t.estado ? `status-${t.estado.toLowerCase()}` : 'status-pendiente';
+                const opacity = t.estado === 'Atendido' ? 'opacity: 0.7;' : '';
+                const borderColor = t.estado === 'Atendido' ? '#22c55e' : (t.estado === 'Ausente' ? '#ef4444' : '#4db6ac');
+
+                html += `
+                <div class="turno-card" style="${opacity} border-left: 6px solid ${borderColor};">
+                    <div class="paciente-info">
+                        <span style="color: var(--primary); font-weight: 800; font-size: 1.1rem; display: block;">${t.hora} hs</span>
+                        <strong style="display:block; font-size: 1.1rem; color: var(--text-dark); margin: 5px 0;">${t.nombre.toUpperCase()}</strong>
+                        <span style="background:#e0f2f1; color: var(--primary-dark); padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: bold;">
+                            ${t.cobertura || 'PARTICULAR'}
+                        </span>
+                        
+                        <select class="status-select ${claseEstado}" onchange="cambiarEstado('${fecha}', '${t.hora}', this.value)">
+                            <option value="Pendiente" ${t.estado === 'Pendiente' ? 'selected' : ''}>⏳ Pendiente</option>
+                            <option value="Atendido" ${t.estado === 'Atendido' ? 'selected' : ''}>✅ Atendido</option>
+                            <option value="Ausente" ${t.estado === 'Ausente' ? 'selected' : ''}>❌ Ausente</option>
+                        </select>
+
+                        <div style="margin-top: 15px;">
+                            <a href="https://wa.me/${t.telefono}" target="_blank" style="text-decoration:none; font-size: 0.8rem; color: var(--whatsapp); font-weight:bold;">💬 Enviar WhatsApp</a>
+                        </div>
+                    </div>
+                    
+                    <div class="diagnostico-area">
+                        <label style="font-size: 0.7rem; color: #94a3b8; font-weight: 800; margin-bottom: 8px;">EVOLUCIÓN MÉDICA</label>
+                        <textarea class="notas-evolucion" onblur="guardar('${fecha}','${t.hora}',this.value)" placeholder="Registrar notas de la consulta...">${t.notas || ''}</textarea>
+                        <div class="save-tag" id="${idStatus}" style="font-size:0.65rem; color: var(--whatsapp); text-align:right; font-weight:bold; height: 15px; margin-top: 5px;"></div>
+                    </div>
+
+                    <button class="btn-eliminar-pro" onclick="eliminar('${fecha}','${t.hora}')" title="Cancelar Turno">✕</button>
+                </div>`;
+            });
+            lista.innerHTML = html;
+        }
+
+        function cambiarEstado(f, h, nuevoEstado) {
+            let db = JSON.parse(localStorage.getItem('turnos_medicos_v2'));
+            const idx = db[f].findIndex(t => t.hora === h);
+            db[f][idx].estado = nuevoEstado;
+            localStorage.setItem('turnos_medicos_v2', JSON.stringify(db));
+            cargar(f);
+        }
+
+        function guardar(f, h, txt) {
+            let db = JSON.parse(localStorage.getItem('turnos_medicos_v2'));
+            const idx = db[f].findIndex(t => t.hora === h);
+            db[f][idx].notas = txt;
+            localStorage.setItem('turnos_medicos_v2', JSON.stringify(db));
+            const statusDiv = document.getElementById(`s-${h.replace(':', '')}`);
+            if(statusDiv) {
+                statusDiv.textContent = "GUARDADO ✓";
+                setTimeout(() => statusDiv.textContent = "", 2000);
+            }
+        }
+
+        function eliminar(f, h) {
+            if(confirm("¿Seguro que deseas eliminar este registro?")) {
+                let db = JSON.parse(localStorage.getItem('turnos_medicos_v2'));
+                db[f] = db[f].filter(t => t.hora !== h);
+                localStorage.setItem('turnos_medicos_v2', JSON.stringify(db));
+                cargar(f);
+            }
+        }
+
+        const hoy = new Date().toISOString().split('T')[0];
+        adminDate.value = hoy;
+        cargar(hoy);
+        adminDate.onchange = (e) => cargar(e.target.value);
+    </script>
+</body>
+</html>

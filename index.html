@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reserva de Turnos - Dra. Ribotta</title>
+    <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+    <div class="hero-bg"></div>
+    <header>
+        <div class="brand">
+            <h2>Dra. Ribotta Noelia</h2>
+            <p>Médica Generalista y de Familia</p>
+        </div>
+        <button class="btn-acceso" onclick="abrirModal()">Acceso Profesional</button>
+    </header>
+
+    <h1>Gestión de Turnos Online</h1>
+
+    <div class="container">
+        <h3 style="text-align: center; margin-top: 0; color: var(--text-dark);">Completá tus datos</h3>
+        
+        <input type="text" id="nombre" placeholder="Apellido y Nombre">
+        <input type="tel" id="telefono" placeholder="Teléfono de contacto">
+        <input type="text" id="cobertura" placeholder="Obra Social / Particular">
+        
+        <label style="font-weight: bold; display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-dark);">Atencion:   Martes y Jueves</label>
+        <input type="date" id="date-picker">
+
+        <div id="slots-section" class="hidden">
+            <p style="font-size: 0.8rem; font-weight: bold; color: var(--primary-dark); margin-top: 15px;">Horarios disponibles:</p>
+            <div id="time-slots" class="grid-slots"></div>
+        </div>
+
+        <button id="confirm-btn" disabled>Confirmar Turno</button>
+
+        <div id="current-appointment" class="hidden">
+            <div style="background: white; padding: 25px; border-radius: 20px; margin-top: 25px; border: 2px solid #e0f2f1; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center;">
+                <div style="background: #f0fdfa; display: inline-block; padding: 8px 18px; border-radius: 50px; margin-bottom: 15px;">
+                    <h4 style="margin:0; color: var(--primary-dark); font-size: 0.85rem; letter-spacing: 0.5px;">✅ TU TURNO RESERVADO</h4>
+                </div>
+                <p id="details-text" style="font-size: 1.1rem; color: var(--text-dark); margin-bottom: 15px; font-weight: 500; line-height: 1.6;"></p>
+                <button id="cancel-btn" onclick="cancelarTurno()">Cancelar Mi Turno</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalLogin" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-btn" onclick="cerrarModal()">&times;</span>
+            <h3 style="color: var(--primary-dark); margin-bottom: 25px;">Panel Profesional</h3>
+            <input type="email" id="adminEmail" placeholder="Correo electrónico">
+            <input type="password" id="adminPass" placeholder="Contraseña">
+            <button class="btn-ingresar" onclick="validarAcceso()">Ingresar al Sistema</button>
+            <p id="errorMsg" style="color: #ef4444; font-size: 0.8rem; margin-top: 15px; font-weight: bold;"></p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
