@@ -21,7 +21,6 @@
             position: relative;
         }
 
-        /* Estilos para los estados */
         .status-select {
             padding: 8px 12px;
             border-radius: 10px;
@@ -77,10 +76,7 @@
             transition: 0.2s;
         }
 
-        .btn-eliminar-pro:hover {
-            background: #e11d48;
-            color: white;
-        }
+        .btn-eliminar-pro:hover { background: #e11d48; color: white; }
 
         @media (max-width: 768px) {
             .turno-card { flex-direction: column; }
@@ -92,7 +88,7 @@
     <div class="hero-bg"></div>
     <header>
         <div class="brand"><h2>Agenda Médica</h2><p>Dra. Ribotta Noelia</p></div>
-        <a href="index.html" class="btn-volver">Cerrar Sesión</a>
+        <button class="btn-volver" id="btn-logout">Cerrar Sesión</button>
     </header>
 
     <div class="container" style="max-width: 950px;">
@@ -104,95 +100,122 @@
         <div id="lista"></div>
     </div>
 
-    <script>
+    <script type="module">
+        import { db, auth } from './firebase-config.js';
+        import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
         const adminDate = document.getElementById('admin-date');
         const lista = document.getElementById('lista');
 
-        function cargar(fecha) {
+        // SEGURIDAD: Verificar si la Dra está logueada
+        onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+            }
+        });
+
+        // CERRAR SESIÓN
+        document.getElementById('btn-logout').onclick = async () => {
+            await signOut(auth);
+            window.location.href = 'index.html';
+        };
+
+        // CARGAR TURNOS DESDE FIREBASE
+        async function cargarFirebase(fecha) {
+            lista.innerHTML = '<p style="text-align:center; padding:20px;">Buscando turnos...</p>';
+            
             const [y, m, d] = fecha.split('-').map(Number);
             const fechaObj = new Date(y, m-1, d);
             document.getElementById('fecha-txt').textContent = fechaObj.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-            const db = JSON.parse(localStorage.getItem('turnos_medicos_v2')) || {};
-            const turnos = db[fecha] || [];
-            
-            if (turnos.length === 0) {
-                lista.innerHTML = `<div style="text-align:center; padding: 60px; color: #94a3b8;">No hay turnos para esta fecha.</div>`;
-                return;
-            }
+            try {
+                const q = query(collection(db, "turnos"), where("fecha", "==", fecha));
+                const querySnapshot = await getDocs(q);
+                
+                let turnos = [];
+                querySnapshot.forEach((doc) => {
+                    turnos.push({ id: doc.id, ...doc.data() });
+                });
 
-            let html = "";
-            turnos.sort((a,b) => a.hora.localeCompare(b.hora)).forEach(t => {
-                const idStatus = `s-${t.hora.replace(':', '')}`;
-                const claseEstado = t.estado ? `status-${t.estado.toLowerCase()}` : 'status-pendiente';
-                const opacity = t.estado === 'Atendido' ? 'opacity: 0.7;' : '';
-                const borderColor = t.estado === 'Atendido' ? '#22c55e' : (t.estado === 'Ausente' ? '#ef4444' : '#4db6ac');
+                // Ordenar por hora
+                turnos.sort((a, b) => a.hora.localeCompare(b.hora));
 
-                html += `
-                <div class="turno-card" style="${opacity} border-left: 6px solid ${borderColor};">
-                    <div class="paciente-info">
-                        <span style="color: var(--primary); font-weight: 800; font-size: 1.1rem; display: block;">${t.hora} hs</span>
-                        <strong style="display:block; font-size: 1.1rem; color: var(--text-dark); margin: 5px 0;">${t.nombre.toUpperCase()}</strong>
-                        <span style="background:#e0f2f1; color: var(--primary-dark); padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: bold;">
-                            ${t.cobertura || 'PARTICULAR'}
-                        </span>
-                        
-                        <select class="status-select ${claseEstado}" onchange="cambiarEstado('${fecha}', '${t.hora}', this.value)">
-                            <option value="Pendiente" ${t.estado === 'Pendiente' ? 'selected' : ''}>⏳ Pendiente</option>
-                            <option value="Atendido" ${t.estado === 'Atendido' ? 'selected' : ''}>✅ Atendido</option>
-                            <option value="Ausente" ${t.estado === 'Ausente' ? 'selected' : ''}>❌ Ausente</option>
-                        </select>
+                if (turnos.length === 0) {
+                    lista.innerHTML = `<div style="text-align:center; padding: 60px; color: #94a3b8;">No hay turnos para esta fecha en la nube.</div>`;
+                    return;
+                }
 
-                        <div style="margin-top: 15px;">
-                            <a href="https://wa.me/${t.telefono}" target="_blank" style="text-decoration:none; font-size: 0.8rem; color: var(--whatsapp); font-weight:bold;">💬 Enviar WhatsApp</a>
+                let html = "";
+                turnos.forEach(t => {
+                    const claseEstado = t.estado ? `status-${t.estado.toLowerCase()}` : 'status-pendiente';
+                    const opacity = t.estado === 'Atendido' ? 'opacity: 0.7;' : '';
+                    const borderColor = t.estado === 'Atendido' ? '#22c55e' : (t.estado === 'Ausente' ? '#ef4444' : '#4db6ac');
+
+                    html += `
+                    <div class="turno-card" style="${opacity} border-left: 6px solid ${borderColor};">
+                        <div class="paciente-info">
+                            <span style="color: var(--primary); font-weight: 800; font-size: 1.1rem; display: block;">${t.hora} hs</span>
+                            <strong style="display:block; font-size: 1.1rem; color: var(--text-dark); margin: 5px 0;">${t.nombre}</strong>
+                            <span style="background:#e0f2f1; color: var(--primary-dark); padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: bold;">
+                                ${t.cobertura}
+                            </span>
+                            
+                            <select class="status-select ${claseEstado}" onchange="window.cambiarEstado('${t.id}', this.value, '${fecha}')">
+                                <option value="Pendiente" ${t.estado === 'Pendiente' ? 'selected' : ''}>⏳ Pendiente</option>
+                                <option value="Atendido" ${t.estado === 'Atendido' ? 'selected' : ''}>✅ Atendido</option>
+                                <option value="Ausente" ${t.estado === 'Ausente' ? 'selected' : ''}>❌ Ausente</option>
+                            </select>
+
+                            <div style="margin-top: 15px;">
+                                <a href="https://wa.me/${t.telefono}" target="_blank" style="text-decoration:none; font-size: 0.8rem; color: var(--whatsapp); font-weight:bold;">💬 Enviar WhatsApp</a>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="diagnostico-area">
-                        <label style="font-size: 0.7rem; color: #94a3b8; font-weight: 800; margin-bottom: 8px;">EVOLUCIÓN MÉDICA</label>
-                        <textarea class="notas-evolucion" onblur="guardar('${fecha}','${t.hora}',this.value)" placeholder="Registrar notas de la consulta...">${t.notas || ''}</textarea>
-                        <div class="save-tag" id="${idStatus}" style="font-size:0.65rem; color: var(--whatsapp); text-align:right; font-weight:bold; height: 15px; margin-top: 5px;"></div>
-                    </div>
+                        
+                        <div class="diagnostico-area">
+                            <label style="font-size: 0.7rem; color: #94a3b8; font-weight: 800; margin-bottom: 8px;">EVOLUCIÓN MÉDICA</label>
+                            <textarea class="notas-evolucion" onblur="window.guardarNotas('${t.id}', this.value)" placeholder="Registrar notas de la consulta...">${t.notas || ''}</textarea>
+                            <div class="save-tag" id="tag-${t.id}" style="font-size:0.65rem; color: var(--whatsapp); text-align:right; font-weight:bold; height: 15px; margin-top: 5px;"></div>
+                        </div>
 
-                    <button class="btn-eliminar-pro" onclick="eliminar('${fecha}','${t.hora}')" title="Cancelar Turno">✕</button>
-                </div>`;
-            });
-            lista.innerHTML = html;
-        }
-
-        function cambiarEstado(f, h, nuevoEstado) {
-            let db = JSON.parse(localStorage.getItem('turnos_medicos_v2'));
-            const idx = db[f].findIndex(t => t.hora === h);
-            db[f][idx].estado = nuevoEstado;
-            localStorage.setItem('turnos_medicos_v2', JSON.stringify(db));
-            cargar(f);
-        }
-
-        function guardar(f, h, txt) {
-            let db = JSON.parse(localStorage.getItem('turnos_medicos_v2'));
-            const idx = db[f].findIndex(t => t.hora === h);
-            db[f][idx].notas = txt;
-            localStorage.setItem('turnos_medicos_v2', JSON.stringify(db));
-            const statusDiv = document.getElementById(`s-${h.replace(':', '')}`);
-            if(statusDiv) {
-                statusDiv.textContent = "GUARDADO ✓";
-                setTimeout(() => statusDiv.textContent = "", 2000);
+                        <button class="btn-eliminar-pro" onclick="window.eliminarTurno('${t.id}', '${fecha}')">✕</button>
+                    </div>`;
+                });
+                lista.innerHTML = html;
+            } catch (error) {
+                console.error(error);
+                lista.innerHTML = "Error al conectar con Firebase.";
             }
         }
 
-        function eliminar(f, h) {
-            if(confirm("¿Seguro que deseas eliminar este registro?")) {
-                let db = JSON.parse(localStorage.getItem('turnos_medicos_v2'));
-                db[f] = db[f].filter(t => t.hora !== h);
-                localStorage.setItem('turnos_medicos_v2', JSON.stringify(db));
-                cargar(f);
-            }
-        }
+        // FUNCIONES GLOBALES (para que funcionen con onclick)
+        window.cambiarEstado = async (id, nuevoEstado, fecha) => {
+            const docRef = doc(db, "turnos", id);
+            await updateDoc(docRef, { estado: nuevoEstado });
+            cargarFirebase(fecha);
+        };
 
+        window.guardarNotas = async (id, texto) => {
+            const docRef = doc(db, "turnos", id);
+            await updateDoc(docRef, { notas: texto });
+            const tag = document.getElementById(`tag-${id}`);
+            tag.textContent = "GUARDADO EN NUBE ✓";
+            setTimeout(() => tag.textContent = "", 2000);
+        };
+
+        window.eliminarTurno = async (id, fecha) => {
+            if(confirm("¿Eliminar este turno de la base de datos?")) {
+                await deleteDoc(doc(db, "turnos", id));
+                cargarFirebase(fecha);
+            }
+        };
+
+        // Inicio
         const hoy = new Date().toISOString().split('T')[0];
         adminDate.value = hoy;
-        cargar(hoy);
-        adminDate.onchange = (e) => cargar(e.target.value);
+        cargarFirebase(hoy);
+        adminDate.onchange = (e) => cargarFirebase(e.target.value);
+
     </script>
 </body>
 </html>

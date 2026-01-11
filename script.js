@@ -1,3 +1,18 @@
+import { db, auth } from './firebase-config.js';
+import { 
+    collection, 
+    addDoc, 
+    getDocs, 
+    query, 
+    where, 
+    deleteDoc, 
+    doc 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { 
+    signInWithEmailAndPassword 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+// Elementos del DOM
 const datePicker = document.getElementById('date-picker');
 const slotsSection = document.getElementById('slots-section');
 const timeSlots = document.getElementById('time-slots');
@@ -10,108 +25,112 @@ const inputTelef = document.getElementById('telefono');
 const inputCobertura = document.getElementById('cobertura');
 
 let selectedTime = null;
-let dbTurnos = JSON.parse(localStorage.getItem('turnos_medicos_v2')) || {};
 
-// Configuración de fecha mínima (hoy)
-const hoy = new Date();
-const fechaHoyStr = hoy.toISOString().split('T')[0];
-if(datePicker) datePicker.min = fechaHoyStr;
+// 1. CONFIGURACIÓN INICIAL DE FECHA
+const hoy = new Date().toISOString().split('T')[0];
+if(datePicker) datePicker.min = hoy;
 
-// Al cargar la página, verificar si el usuario ya tiene un turno guardado
-window.addEventListener('DOMContentLoaded', () => {
-    const miTurno = JSON.parse(localStorage.getItem('mi_ultimo_turno'));
-    if (miTurno && detailsText) mostrarTurnoActual(miTurno.fecha, miTurno);
-});
-
-/* --- CORRECCIÓN PARA iOS: Evento 'input' y showPicker --- */
+// 2. ESCUCHAR CAMBIO DE FECHA (CON MEJORA PARA iOS)
 if (datePicker) {
-    // Forzamos la apertura del selector en móviles al hacer clic
-    datePicker.addEventListener('click', function() {
-        if (this.showPicker) this.showPicker();
-    });
+    datePicker.addEventListener('input', async (e) => {
+        const fecha = e.target.value;
+        if (!fecha) return;
 
-    datePicker.addEventListener('input', (e) => {
-        const valorFecha = e.target.value;
-        if (!valorFecha) return;
+        const [y, m, d] = fecha.split('-').map(Number);
+        const date = new Date(y, m - 1, d);
         
-        // Corregir desfase de zona horaria
-        const [year, month, day] = valorFecha.split('-').map(Number);
-        const date = new Date(year, month - 1, day);
-        
-        // Validación: Solo Martes (2) y Jueves (4)
-        const diaSemana = date.getDay();
-        if (diaSemana !== 2 && diaSemana !== 4) {
-            alert("Atención: La Dra. Ribotta atiende solo los días Martes y Jueves.");
+        if (date.getDay() !== 2 && date.getDay() !== 4) {
+            alert("La Dra. atiende solo Martes y Jueves.");
             e.target.value = "";
             slotsSection.classList.add('hidden');
             return;
         }
-        
+
         slotsSection.classList.remove('hidden');
-        renderSlots(valorFecha);
+        await renderSlotsFirebase(fecha);
     });
 }
 
-// Función para generar la cuadrícula de horarios (Grid Slots)
-function renderSlots(fecha) {
-    timeSlots.innerHTML = '';
+// 3. RENDERIZAR HORARIOS DESDE FIREBASE
+async function renderSlotsFirebase(fecha) {
+    timeSlots.innerHTML = '<p style="grid-column: 1/-1; text-align:center;">Cargando horarios...</p>';
     selectedTime = null;
     confirmBtn.disabled = true;
 
-    // Rango horario: 10:30 a 13:00 cada 10 minutos
-    let current = new Date(`2026-01-01T10:30:00`);
-    const end = new Date(`2026-01-01T13:00:00`);
-    const ocupados = dbTurnos[fecha] || [];
+    try {
+        // Consultar turnos ya ocupados en Firebase para esa fecha
+        const q = query(collection(db, "turnos"), where("fecha", "==", fecha));
+        const querySnapshot = await getDocs(q);
+        const ocupados = querySnapshot.docs.map(doc => doc.data().hora);
 
-    while (current <= end) {
-        const timeStr = current.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-        const slot = document.createElement('div');
-        const estaOcupado = ocupados.some(t => t.hora === timeStr);
-        
-        slot.className = 'slot' + (estaOcupado ? ' occupied' : '');
-        slot.textContent = timeStr;
+        timeSlots.innerHTML = '';
+        let current = new Date(`2026-01-01T10:30:00`);
+        const end = new Date(`2026-01-01T13:00:00`);
 
-        if (!estaOcupado) {
-            slot.onclick = () => {
-                document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
-                slot.classList.add('selected');
-                selectedTime = timeStr;
-                confirmBtn.disabled = false;
-            };
+        while (current <= end) {
+            const timeStr = current.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+            const slot = document.createElement('div');
+            const estaOcupado = ocupados.includes(timeStr);
+            
+            slot.className = 'slot' + (estaOcupado ? ' occupied' : '');
+            slot.textContent = timeStr;
+
+            if (!estaOcupado) {
+                slot.onclick = () => {
+                    document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
+                    slot.classList.add('selected');
+                    selectedTime = timeStr;
+                    confirmBtn.disabled = false;
+                };
+            }
+            timeSlots.appendChild(slot);
+            current.setMinutes(current.getMinutes() + 10);
         }
-        
-        timeSlots.appendChild(slot);
-        current.setMinutes(current.getMinutes() + 10);
+    } catch (error) {
+        console.error("Error al obtener turnos:", error);
+        timeSlots.innerHTML = 'Error al cargar datos.';
     }
 }
 
-// Lógica de confirmación de turno (Paciente)
+// 4. CONFIRMAR TURNO (GUARDAR EN FIREBASE)
 if (confirmBtn) {
-    confirmBtn.onclick = () => {
+    confirmBtn.onclick = async () => {
         if (!inputNombre.value || !inputTelef.value) {
-            alert("Por favor, completa Nombre y Teléfono.");
+            alert("Completá nombre y teléfono.");
             return;
         }
 
-        const nuevoTurno = { 
-            fecha: datePicker.value, 
-            hora: selectedTime, 
+        const nuevoTurno = {
             nombre: inputNombre.value.toUpperCase(),
             telefono: inputTelef.value,
             cobertura: inputCobertura.value || 'PARTICULAR',
+            fecha: datePicker.value,
+            hora: selectedTime,
             estado: 'Pendiente',
-            notas: "" 
+            notas: "",
+            createdAt: new Date()
         };
 
-        if (!dbTurnos[datePicker.value]) dbTurnos[datePicker.value] = [];
-        dbTurnos[datePicker.value].push(nuevoTurno);
-        
-        localStorage.setItem('turnos_medicos_v2', JSON.stringify(dbTurnos));
-        localStorage.setItem('mi_ultimo_turno', JSON.stringify(nuevoTurno));
-        
-        mostrarTurnoActual(datePicker.value, nuevoTurno);
-        renderSlots(datePicker.value);
-        alert("¡Turno reservado correctamente!");
+        try {
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = "Guardando...";
+            
+            const docRef = await addDoc(collection(db, "turnos"), nuevoTurno);
+            
+            // Guardamos el ID localmente por si quiere cancelar en la misma sesión
+            localStorage.setItem('ultimo_id_firebase', docRef.id);
+            localStorage.setItem('mi_ultimo_turno', JSON.stringify(nuevoTurno));
+
+            mostrarTurnoActual(datePicker.value, nuevoTurno);
+            await renderSlotsFirebase(datePicker.value);
+            
+            alert("¡Turno confirmado con éxito!");
+            confirmBtn.textContent = "Confirmar Turno";
+        } catch (e) {
+            console.error("Error al guardar:", e);
+            alert("Hubo un problema al guardar el turno.");
+            confirmBtn.disabled = false;
+        }
     };
 }
 
@@ -121,48 +140,40 @@ function mostrarTurnoActual(fecha, turno) {
     detailsText.innerHTML = `<strong>Día:</strong> ${fecha}<br><strong>Hora:</strong> ${turno.hora} hs<br><strong>Paciente:</strong> ${turno.nombre}`;
 }
 
-// Función de Cancelación desde el lado del Paciente
-function cancelarTurno() {
-    if (confirm("¿Deseas cancelar tu turno reservado?")) {
-        const miTurno = JSON.parse(localStorage.getItem('mi_ultimo_turno'));
-        if (miTurno) {
-            if (dbTurnos[miTurno.fecha]) {
-                dbTurnos[miTurno.fecha] = dbTurnos[miTurno.fecha].filter(t => t.hora !== miTurno.hora);
-                localStorage.setItem('turnos_medicos_v2', JSON.stringify(dbTurnos));
-            }
+// 5. CANCELAR TURNO (LADO PACIENTE)
+window.cancelarTurno = async function() {
+    const idFirebase = localStorage.getItem('ultimo_id_firebase');
+    if (!idFirebase) {
+        alert("No se encontró un turno activo para cancelar.");
+        return;
+    }
+
+    if (confirm("¿Seguro que deseas cancelar tu turno?")) {
+        try {
+            await deleteDoc(doc(db, "turnos", idFirebase));
+            localStorage.removeItem('ultimo_id_firebase');
             localStorage.removeItem('mi_ultimo_turno');
-            location.reload(); 
+            alert("Turno cancelado.");
+            location.reload();
+        } catch (e) {
+            alert("Error al cancelar.");
         }
     }
 }
 
-/* --- LÓGICA DE ACCESO PROFESIONAL (MODAL) --- */
-function abrirModal() { 
-    const modal = document.getElementById('modalLogin');
-    if(modal) {
-        modal.style.display = 'flex'; 
-        document.getElementById('errorMsg').textContent = "";
-    }
-}
+// 6. ACCESO PROFESIONAL (LOGIN CON FIREBASE)
+window.abrirModal = () => document.getElementById('modalLogin').style.display = 'flex';
+window.cerrarModal = () => document.getElementById('modalLogin').style.display = 'none';
 
-function cerrarModal() { 
-    const modal = document.getElementById('modalLogin');
-    if(modal) modal.style.display = 'none'; 
-}
-
-function validarAcceso() {
+window.validarAcceso = async () => {
     const email = document.getElementById('adminEmail').value;
     const pass = document.getElementById('adminPass').value;
-    
-    if (email === "ribottanoelia@gmail.com" && pass === "1234") {
-        window.location.href = 'panelprofesional.html';
-    } else {
-        document.getElementById('errorMsg').textContent = "Credenciales incorrectas.";
-    }
-}
+    const errorMsg = document.getElementById('errorMsg');
 
-// Cerrar modal al tocar fuera
-window.onclick = function(event) {
-    const modal = document.getElementById('modalLogin');
-    if (event.target == modal) cerrarModal();
-}
+    try {
+        await signInWithEmailAndPassword(auth, email, pass);
+        window.location.href = 'panelprofesional.html';
+    } catch (error) {
+        errorMsg.textContent = "Usuario o contraseña incorrectos.";
+    }
+};
