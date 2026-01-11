@@ -101,6 +101,7 @@ input, textarea {
 /* Corrección específica para Calendario en iOS */
 input[type="date"] {
     -webkit-appearance: none; /* Normaliza visual en Safari */
+    appearance: none;
     min-height: 45px;
     background-color: #ffffff;
     cursor: pointer;
