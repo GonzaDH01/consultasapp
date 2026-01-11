@@ -30,17 +30,20 @@ let selectedTime = null;
 const hoy = new Date().toISOString().split('T')[0];
 if(datePicker) datePicker.min = hoy;
 
-// 2. ESCUCHAR CAMBIO DE FECHA (CON MEJORA PARA iOS)
+// 2. ESCUCHAR CAMBIO DE FECHA (CON MEJORA PARA iOS Y ANDROID)
 if (datePicker) {
-    datePicker.addEventListener('input', async (e) => {
+    // Usamos 'change' en lugar de 'input' para mayor compatibilidad con campos readonly
+    datePicker.addEventListener('change', async (e) => {
         const fecha = e.target.value;
         if (!fecha) return;
 
+        // Validar que sea Martes (1) o Jueves (3) - En JS Date.getDay() 0 es Domingo
+        // Nota: split('-') para evitar problemas de zona horaria local
         const [y, m, d] = fecha.split('-').map(Number);
         const date = new Date(y, m - 1, d);
         
         if (date.getDay() !== 2 && date.getDay() !== 4) {
-            alert("La Dra. atiende solo Martes y Jueves.");
+            alert("Atención: La Dra. Noelia atiende únicamente los días Martes y Jueves.");
             e.target.value = "";
             slotsSection.classList.add('hidden');
             return;
@@ -53,115 +56,116 @@ if (datePicker) {
 
 // 3. RENDERIZAR HORARIOS DESDE FIREBASE
 async function renderSlotsFirebase(fecha) {
-    timeSlots.innerHTML = '<p style="grid-column: 1/-1; text-align:center;">Cargando horarios...</p>';
+    timeSlots.innerHTML = '<p style="grid-column: 1/-1; text-align:center;">Cargando disponibilidad...</p>';
     selectedTime = null;
     confirmBtn.disabled = true;
 
     try {
-        // Consultar turnos ya ocupados en Firebase para esa fecha
+        // Consultar turnos ya reservados en esa fecha
         const q = query(collection(db, "turnos"), where("fecha", "==", fecha));
         const querySnapshot = await getDocs(q);
         const ocupados = querySnapshot.docs.map(doc => doc.data().hora);
 
-        timeSlots.innerHTML = '';
-        let current = new Date(`2026-01-01T10:30:00`);
-        const end = new Date(`2026-01-01T13:00:00`);
+        const horarios = [
+            "10:30", "10:40", "10:50", "11:00", "11:10", "11:20", "11:30", 
+            "11:40", "11:50", "12:00", "12:10", "12:20", "12:30", "12:40", "12:50"
+        ];
 
-        while (current <= end) {
-            const timeStr = current.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-            const slot = document.createElement('div');
-            const estaOcupado = ocupados.includes(timeStr);
+        timeSlots.innerHTML = "";
+        horarios.forEach(hora => {
+            const btn = document.createElement('button');
+            btn.className = 'slot-btn';
+            btn.textContent = hora;
             
-            slot.className = 'slot' + (estaOcupado ? ' occupied' : '');
-            slot.textContent = timeStr;
-
-            if (!estaOcupado) {
-                slot.onclick = () => {
-                    document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
-                    slot.classList.add('selected');
-                    selectedTime = timeStr;
+            if (ocupados.includes(hora)) {
+                btn.classList.add('ocupado');
+                btn.disabled = true;
+            } else {
+                btn.onclick = () => {
+                    document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    selectedTime = hora;
                     confirmBtn.disabled = false;
                 };
             }
-            timeSlots.appendChild(slot);
-            current.setMinutes(current.getMinutes() + 10);
-        }
+            timeSlots.appendChild(btn);
+        });
     } catch (error) {
-        console.error("Error al obtener turnos:", error);
-        timeSlots.innerHTML = 'Error al cargar datos.';
+        console.error("Error al cargar turnos:", error);
+        timeSlots.innerHTML = '<p style="color:red;">Error al conectar con la base de datos.</p>';
     }
 }
 
-// 4. CONFIRMAR TURNO (GUARDAR EN FIREBASE)
+// 4. GUARDAR TURNO EN FIREBASE
 if (confirmBtn) {
     confirmBtn.onclick = async () => {
-        if (!inputNombre.value || !inputTelef.value) {
-            alert("Completá nombre y teléfono.");
+        const nombre = inputNombre.value.trim();
+        const tel = inputTelef.value.trim();
+        const cob = inputCobertura.value.trim();
+
+        if (!nombre || !tel || !cob) {
+            alert("Por favor, completa todos tus datos personales.");
             return;
         }
 
         const nuevoTurno = {
-            nombre: inputNombre.value.toUpperCase(),
-            telefono: inputTelef.value,
-            cobertura: inputCobertura.value || 'PARTICULAR',
+            nombre,
+            telefono: tel,
+            cobertura: cob,
             fecha: datePicker.value,
             hora: selectedTime,
-            estado: 'Pendiente',
-            notas: "",
-            createdAt: new Date()
+            estado: "Pendiente",
+            notas: ""
         };
 
         try {
             confirmBtn.disabled = true;
-            confirmBtn.textContent = "Guardando...";
+            confirmBtn.textContent = "Procesando...";
             
             const docRef = await addDoc(collection(db, "turnos"), nuevoTurno);
             
-            // Guardamos el ID localmente por si quiere cancelar en la misma sesión
-            localStorage.setItem('ultimo_id_firebase', docRef.id);
+            // Guardar en local para que el paciente vea su turno al recargar
             localStorage.setItem('mi_ultimo_turno', JSON.stringify(nuevoTurno));
+            localStorage.setItem('ultimo_id_firebase', docRef.id);
 
-            mostrarTurnoActual(datePicker.value, nuevoTurno);
-            await renderSlotsFirebase(datePicker.value);
-            
             alert("¡Turno confirmado con éxito!");
-            confirmBtn.textContent = "Confirmar Turno";
+            mostrarTurnoConfirmado(nuevoTurno);
         } catch (e) {
             console.error("Error al guardar:", e);
-            alert("Hubo un problema al guardar el turno.");
+            alert("Hubo un error al guardar el turno. Reintenta.");
             confirmBtn.disabled = false;
+            confirmBtn.textContent = "Confirmar Turno";
         }
     };
 }
 
-function mostrarTurnoActual(fecha, turno) {
-    if(!currentApptDiv) return;
+function mostrarTurnoConfirmado(turno) {
+    document.querySelector('.container').querySelectorAll('input, label, #slots-section').forEach(el => el.style.display = 'none');
+    document.querySelector('h3').style.display = 'none';
+    
     currentApptDiv.classList.remove('hidden');
-    detailsText.innerHTML = `<strong>Día:</strong> ${fecha}<br><strong>Hora:</strong> ${turno.hora} hs<br><strong>Paciente:</strong> ${turno.nombre}`;
+    detailsText.innerHTML = `<strong>Fecha:</strong> ${turno.fecha}<br><strong>Hora:</strong> ${turno.hora} hs<br><strong>Paciente:</strong> ${turno.nombre}`;
 }
 
 // 5. CANCELAR TURNO (LADO PACIENTE)
 window.cancelarTurno = async function() {
     const idFirebase = localStorage.getItem('ultimo_id_firebase');
-    if (!idFirebase) {
-        alert("No se encontró un turno activo para cancelar.");
-        return;
-    }
+    if (!idFirebase) return;
 
     if (confirm("¿Seguro que deseas cancelar tu turno?")) {
         try {
             await deleteDoc(doc(db, "turnos", idFirebase));
             localStorage.removeItem('ultimo_id_firebase');
             localStorage.removeItem('mi_ultimo_turno');
-            alert("Turno cancelado.");
+            alert("Turno cancelado correctamente.");
             location.reload();
         } catch (e) {
-            alert("Error al cancelar.");
+            alert("No se pudo cancelar. Intenta más tarde.");
         }
     }
 }
 
-// 6. ACCESO PROFESIONAL (LOGIN CON FIREBASE)
+// 6. ACCESO PROFESIONAL (MODAL Y LOGIN)
 window.abrirModal = () => document.getElementById('modalLogin').style.display = 'flex';
 window.cerrarModal = () => document.getElementById('modalLogin').style.display = 'none';
 
@@ -172,8 +176,16 @@ window.validarAcceso = async () => {
 
     try {
         await signInWithEmailAndPassword(auth, email, pass);
-        window.location.href = 'panelprofesional.html';
+        window.location.href = "panelprofesional.html";
     } catch (error) {
-        errorMsg.textContent = "Usuario o contraseña incorrectos.";
+        errorMsg.textContent = "Credenciales incorrectas.";
+    }
+};
+
+// Al cargar, ver si ya tiene un turno en este dispositivo
+window.onload = () => {
+    const guardado = localStorage.getItem('mi_ultimo_turno');
+    if (guardado) {
+        mostrarTurnoConfirmado(JSON.parse(guardado));
     }
 };
