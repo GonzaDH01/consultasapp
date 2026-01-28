@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Reserva de Turnos - Dra. Ribotta</title>
     <link rel="stylesheet" href="estilo.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
     <div class="hero-bg"></div>
@@ -18,30 +19,37 @@
 
     <h1>Gestión de Turnos Online</h1>
 
-    <div class="container">
-        <h3 style="text-align: center; margin-top: 0; color: var(--text-dark);">Completá tus datos</h3>
-        
-        <input type="text" id="nombre" placeholder="Apellido y Nombre">
-        <input type="tel" id="telefono" placeholder="Teléfono de contacto">
-        <input type="text" id="cobertura" placeholder="Obra Social / Particular">
-        
-        <label style="font-weight: bold; display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-dark);">Atención: Martes y Jueves</label>
-        
-        <input type="date" id="date-picker" readonly onclick="if(this.showPicker) this.showPicker()" onfocus="this.blur()" style="cursor: pointer; min-height: 45px;">
+    <div style="display: flex; justify-content: center; margin-bottom: 25px;">
+        <a href="https://wa.me/5493562550718?text=Hola%20Dra.%20Noelia,%20necesito%20solicitar%20una%20receta%20médica." 
+           target="_blank" style="text-decoration:none; width: 90%; max-width: 450px;">
+            <button type="button" class="btn-whatsapp-receta">
+                <span>💊</span> Solicitar Recetas Médicas
+            </button>
+        </a>
+    </div>
 
-        <div id="slots-section" class="hidden">
-            <h4 style="color: var(--primary-dark); margin-bottom: 15px;">Seleccioná un horario disponible:</h4>
-            <div id="time-slots" class="slots-grid"></div>
-            <button id="confirm-btn" disabled>Confirmar Turno</button>
+    <div class="container">
+        <div id="booking-form">
+            <h3 style="text-align: center; margin-top: 0; color: var(--text-dark);">Completá tus datos</h3>
+            <input type="text" id="nombre" placeholder="Apellido y Nombre">
+            <input type="tel" id="telefono" placeholder="Teléfono de contacto">
+            <input type="text" id="cobertura" placeholder="Obra Social / Particular">
+            
+            <label class="label-info">Atención: Martes y Jueves</label>
+            <input type="date" id="date-picker">
+
+            <div id="slots-section" class="hidden">
+                <h4 style="color: var(--primary-dark); margin-bottom: 15px;">Seleccioná un horario:</h4>
+                <div id="time-slots" class="slots-grid"></div>
+                <button id="confirm-btn" disabled>Confirmar Turno</button>
+            </div>
         </div>
 
         <div id="current-appointment" class="hidden">
-            <div style="background: white; padding: 25px; border-radius: 20px; margin-top: 25px; border: 2px solid #e0f2f1; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center;">
-                <div style="background: #f0fdfa; display: inline-block; padding: 8px 18px; border-radius: 50px; margin-bottom: 15px;">
-                    <h4 style="margin:0; color: var(--primary-dark); font-size: 0.85rem; letter-spacing: 0.5px;">✅ TU TURNO RESERVADO</h4>
-                </div>
-                <p id="details-text" style="font-size: 1.1rem; color: var(--text-dark); margin-bottom: 15px; font-weight: 500; line-height: 1.6;"></p>
-                <button id="cancel-btn" onclick="cancelarTurno()">Cancelar Mi Turno</button>
+            <div class="confirm-card">
+                <div class="status-badge">✅ TU TURNO RESERVADO</div>
+                <p id="details-text" style="margin: 15px 0; line-height: 1.6; color: var(--text-dark);"></p>
+                <button id="cancel-btn" onclick="cancelarTurno()">Anular mi turno</button>
             </div>
         </div>
     </div>
@@ -49,16 +57,11 @@
     <div id="modalLogin" class="modal-overlay">
         <div class="modal-content">
             <span class="close-btn" onclick="cerrarModal()">&times;</span>
-            <h3 style="color: var(--primary-dark); margin-bottom: 25px;">Panel Profesional</h3>
+            <h3 style="color: var(--primary-dark); margin-bottom: 20px;">Panel Profesional</h3>
             <input type="email" id="adminEmail" placeholder="Correo electrónico">
             <input type="password" id="adminPass" placeholder="Contraseña">
-            
-            <button class="btn-ingresar" onclick="validarAcceso()" 
-                style="width: 100%; padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, #4db6ac 0%, #00796b 100%); color: white; font-weight: 700; cursor: pointer; margin-top: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                Ingresar al Sistema
-            </button>
-            
-            <p id="errorMsg" style="color: #e11d48; margin-top: 15px; font-size: 0.9rem; font-weight: 600;"></p>
+            <button class="btn-primary-action" onclick="validarAcceso()">Ingresar al Sistema</button>
+            <p id="errorMsg" style="color: #e11d48; margin-top: 10px; font-weight: 600;"></p>
         </div>
     </div>
 

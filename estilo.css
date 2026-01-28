@@ -1,215 +1,58 @@
 :root {
     --primary: #4db6ac;
     --primary-dark: #00796b;
-    --whatsapp: #22c55e;
+    --whatsapp: #25D366;
     --bg-light: #f4f7f6;
     --white: #ffffff;
     --text-dark: #374151;
 }
 
-/* --- RESET Y BASE --- */
-body { 
-    font-family: 'Segoe UI', system-ui, sans-serif; 
-    background-color: var(--bg-light); 
-    margin: 0;
-    display: flex; 
-    flex-direction: column;
-    align-items: center; 
-    min-height: 100vh;
-    /* Evita el rebote de scroll en iOS al abrir selectores */
-    overscroll-behavior-y: none;
-}
+body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-light); margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
 
-/* Fondo decorativo superior */
-.hero-bg {
-    width: 100%;
-    background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
-    height: 320px;
-    position: absolute;
-    top: 0;
-    z-index: -1;
-}
+.hero-bg { width: 100%; background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%); height: 320px; position: absolute; top: 0; z-index: -1; }
 
-/* --- HEADER --- */
-header {
-    width: 100%;
-    max-width: 1100px; 
-    margin: 0 auto;
-    padding: 25px 20px;
-    display: flex;
-    justify-content: space-between; 
-    align-items: flex-start;
-    box-sizing: border-box;
-    position: relative;
-    z-index: 10;
-}
+header { width: 100%; max-width: 1100px; padding: 25px 20px; display: flex; justify-content: space-between; box-sizing: border-box; z-index: 10; }
 
-.brand h2 { 
-    margin: 0; 
-    color: var(--primary-dark); 
-    font-style: italic; 
-    font-family: 'Georgia', serif; 
-    font-size: 1.5rem;
-}
+.brand h2 { margin: 0; color: var(--primary-dark); font-family: 'Georgia', serif; font-size: 1.5rem; }
 
-.btn-acceso, .btn-volver {
-    background: rgba(255, 255, 255, 0.15);
+/* Botón Cristalizado (Usado en index y panel profesional) */
+.btn-acceso {
+    background: rgba(255, 255, 255, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.5);
-    color: white;
-    padding: 10px 22px;
-    border-radius: 10px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    backdrop-filter: blur(8px);
-    transition: all 0.3s ease;
-    text-decoration: none;
+    color: white; padding: 10px 20px; border-radius: 12px;
+    font-weight: 600; cursor: pointer; backdrop-filter: blur(8px); transition: 0.3s;
 }
 
-/* --- CONTENEDOR PRINCIPAL --- */
-.container { 
-    background: var(--white); 
-    padding: 2.5rem; 
-    border-radius: 25px; 
-    box-shadow: 0 15px 35px rgba(0,0,0,0.08); 
-    max-width: 550px; 
-    width: 92%; 
-    margin-top: 10px;
-    box-sizing: border-box;
-    position: relative;
+.btn-whatsapp-receta {
+    width: 100%; padding: 14px; border: none; border-radius: 15px; 
+    background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); 
+    color: white; font-weight: 700; cursor: pointer; display: flex; 
+    align-items: center; justify-content: center; gap: 10px;
 }
 
-h1 { 
-    color: var(--white); 
-    text-align: center; 
-    margin: 10px 0 25px 0; 
-    font-size: 2rem;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
+.container { background: var(--white); padding: 2rem; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); max-width: 550px; width: 92%; box-sizing: border-box; }
 
-/* --- FORMULARIO E INPUTS --- */
-input, textarea { 
-    width: 100%; 
-    padding: 14px; 
-    border: 1px solid #e2e8f0; 
-    border-radius: 12px; 
-    margin-bottom: 15px;
-    box-sizing: border-box;
-    font-size: 16px; /* Evita zoom automático en iOS al enfocar */
-}
+h1 { color: var(--white); text-align: center; margin: 10px 0 25px 0; font-size: 2rem; }
 
-/* Corrección específica para Calendario en iOS */
-input[type="date"] {
-    -webkit-appearance: none; /* Normaliza visual en Safari */
-    appearance: none;
-    min-height: 45px;
-    background-color: #ffffff;
-    cursor: pointer;
-}
+input { width: 100%; padding: 14px; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; font-size: 16px; }
 
-/* --- GRID DE HORARIOS (SLOTS) --- */
-.grid-slots { 
-    display: grid; 
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); 
-    gap: 12px;
-    margin-top: 15px;
-}
+.label-info { font-weight: bold; display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-dark); }
 
-.slot { 
-    padding: 12px; 
-    text-align: center; 
-    border: 2px solid #f1f5f9; 
-    background: #ffffff; 
-    border-radius: 12px; 
-    cursor: pointer; 
-    font-weight: 600;
-    color: var(--text-dark);
-    transition: all 0.2s ease;
-}
+.slots-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
 
-.slot.selected { 
-    background: var(--primary); 
-    color: white; 
-    border-color: var(--primary); 
-    box-shadow: 0 4px 12px rgba(77, 182, 172, 0.3);
-}
+.slot-btn { padding: 12px 5px; border: 1.5px solid #e2e8f0; background: #fff; border-radius: 12px; cursor: pointer; font-weight: 700; }
+.slot-btn.selected { background: var(--primary); color: white; border-color: var(--primary); }
+.slot-btn.ocupado { background: #f1f5f9; color: #cbd5e1; text-decoration: line-through; cursor: not-allowed; border: 1px dashed #cbd5e1; }
 
-.slot.occupied { 
-    background: #f1f5f9; 
-    color: #cbd5e1; 
-    cursor: not-allowed; 
-}
+#confirm-btn { width: 100%; padding: 16px; border: none; border-radius: 15px; background: var(--primary-dark); color: white; font-weight: 700; cursor: pointer; }
 
-/* --- BOTONES DE ACCIÓN --- */
-button#confirm-btn { 
-    width: 100%; 
-    padding: 16px; 
-    border: none; 
-    border-radius: 15px; 
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); 
-    color: white; 
-    font-weight: 700; 
-    cursor: pointer;
-    box-shadow: 0 4px 15px rgba(0, 121, 107, 0.2);
-}
+.confirm-card { text-align: center; padding: 10px; }
+.status-badge { background: #f0fdfa; padding: 8px 18px; border-radius: 50px; color: var(--primary-dark); font-weight: 700; display: inline-block; }
+#cancel-btn { background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; padding: 12px; border-radius: 12px; cursor: pointer; width: 100%; font-weight: 600; }
 
-button#confirm-btn:disabled { 
-    background: #cbd5e1; 
-    cursor: not-allowed; 
-    box-shadow: none;
-}
-
-#cancel-btn {
-    background: #fff1f2;
-    color: #e11d48;
-    border: 1px solid #fecdd3;
-    padding: 10px 25px;
-    border-radius: 12px;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-/* --- ESTADOS PROFESIONALES (PANEL) --- */
-.status-select {
-    padding: 8px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    font-size: 0.75rem;
-    font-weight: 700;
-    width: 100%;
-}
-
-.status-pendiente { background: #fef9c3; color: #a16207; }
-.status-atendido { background: #dcfce7; color: #15803d; }
-.status-ausente { background: #fee2e2; color: #b91c1c; }
-
-/* --- MODAL LOGIN --- */
-.modal-overlay {
-    display: none; 
-    position: fixed; 
-    top: 0; left: 0; 
-    width: 100%; height: 100%;
-    background: rgba(15, 23, 42, 0.6); 
-    backdrop-filter: blur(6px); 
-    z-index: 1000;
-    align-items: center; 
-    justify-content: center;
-}
-
-.modal-content {
-    background: white; 
-    padding: 40px; 
-    border-radius: 24px; 
-    max-width: 400px; 
-    width: 90%;
-    text-align: center;
-}
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 1000; align-items: center; justify-content: center; }
+.modal-content { background: white; padding: 30px; border-radius: 20px; width: 85%; max-width: 350px; text-align: center; }
+.btn-primary-action { width: 100%; padding: 14px; border: none; border-radius: 12px; background: var(--primary-dark); color: white; font-weight: 700; cursor: pointer; margin-top: 10px; }
 
 .hidden { display: none; }
-
-/* --- ADAPTACIÓN MÓVIL --- */
-@media (max-width: 480px) {
-    .container { padding: 1.5rem; }
-    .grid-slots { grid-template-columns: repeat(2, 1fr); }
-    h1 { font-size: 1.6rem; }
-}
+@media (max-width: 480px) { .slots-grid { grid-template-columns: repeat(2, 1fr); } }

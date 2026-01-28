@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel Profesional - Dra. Ribotta</title>
     <link rel="stylesheet" href="estilo.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        /* Estilos específicos para las tarjetas del panel */
         .turno-card {
             background: #ffffff;
             border-radius: 18px;
@@ -17,67 +17,20 @@
             display: flex;
             gap: 25px;
             align-items: flex-start;
-            transition: all 0.3s ease;
             position: relative;
         }
-
-        .status-select {
-            padding: 8px 12px;
-            border-radius: 10px;
-            border: 1px solid #e2e8f0;
-            font-size: 0.75rem;
-            font-weight: 700;
-            cursor: pointer;
-            margin-top: 12px;
-            outline: none;
-            width: 100%;
-        }
-
-        .status-pendiente { background: #fef9c3; color: #a16207; border-color: #fde047; }
-        .status-atendido { background: #dcfce7; color: #15803d; border-color: #86efac; }
-        .status-ausente { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
-
-        .paciente-info {
-            flex: 0 0 220px;
-            border-right: 2px solid #f1f5f9;
-            padding-right: 20px;
-        }
-
-        .diagnostico-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
+        .paciente-info { flex: 0 0 220px; border-right: 2px solid #f1f5f9; padding-right: 20px; }
+        .diagnostico-area { flex: 1; display: flex; flex-direction: column; }
         .notas-evolucion {
-            width: 100%;
-            min-height: 120px;
-            padding: 15px;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            background: #f8fafc;
-            font-family: inherit;
-            font-size: 0.95rem;
-            resize: vertical;
+            width: 100%; min-height: 120px; padding: 15px; border: 1px solid #e2e8f0;
+            border-radius: 12px; background: #f8fafc; font-size: 0.95rem; resize: vertical;
         }
-
         .btn-eliminar-pro {
-            background: #f1f5f9;
-            color: #64748b;
-            border: none;
-            width: 35px;
-            height: 35px;
-            border-radius: 10px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            transition: 0.2s;
+            background: #f1f5f9; color: #64748b; border: none; width: 35px; height: 35px;
+            border-radius: 10px; cursor: pointer; font-weight: bold; transition: 0.2s;
         }
-
         .btn-eliminar-pro:hover { background: #e11d48; color: white; }
-
+        
         @media (max-width: 768px) {
             .turno-card { flex-direction: column; }
             .paciente-info { border-right: none; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; width: 100%; }
@@ -87,8 +40,11 @@
 <body>
     <div class="hero-bg"></div>
     <header>
-        <div class="brand"><h2>Agenda Médica</h2><p>Dra. Ribotta Noelia</p></div>
-        <button class="btn-volver" id="btn-logout">Cerrar Sesión</button>
+        <div class="brand">
+            <h2>Agenda Médica</h2>
+            <p>Dra. Ribotta Noelia</p>
+        </div>
+        <button class="btn-acceso" id="btn-logout">Cerrar Sesión</button>
     </header>
 
     <div class="container" style="max-width: 950px;">
@@ -96,35 +52,44 @@
             <h3 id="fecha-txt" style="color: var(--primary-dark); margin:0; text-transform: capitalize;"></h3>
             <input type="date" id="admin-date" style="width: auto; margin:0;">
         </div>
-        
         <div id="lista"></div>
     </div>
 
     <script type="module">
         import { db, auth } from './firebase-config.js';
-        import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { collection, query, where, getDocs, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const adminDate = document.getElementById('admin-date');
         const lista = document.getElementById('lista');
 
-        // SEGURIDAD: Verificar si la Dra está logueada
-        onAuthStateChanged(auth, (user) => {
-            if (!user) {
-                window.location.href = 'index.html';
-            }
+        // Seguridad: Si no hay usuario, vuelve al index
+        onAuthStateChanged(auth, (user) => { 
+            if (!user) window.location.href = 'index.html'; 
         });
 
-        // CERRAR SESIÓN
+        // Cerrar sesión con SweetAlert2
         document.getElementById('btn-logout').onclick = async () => {
-            await signOut(auth);
-            window.location.href = 'index.html';
+            Swal.fire({
+                title: '¿Cerrar sesión?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#4db6ac',
+                cancelButtonColor: '#cbd5e1',
+                confirmButtonText: 'Sí, salir',
+                cancelButtonText: 'Cancelar'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    await signOut(auth);
+                }
+            });
         };
 
-        // CARGAR TURNOS DESDE FIREBASE
+        // Función principal de carga
         async function cargarFirebase(fecha) {
             lista.innerHTML = '<p style="text-align:center; padding:20px;">Buscando turnos...</p>';
             
+            // Formatear fecha para el título
             const [y, m, d] = fecha.split('-').map(Number);
             const fechaObj = new Date(y, m-1, d);
             document.getElementById('fecha-txt').textContent = fechaObj.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -132,36 +97,30 @@
             try {
                 const q = query(collection(db, "turnos"), where("fecha", "==", fecha));
                 const querySnapshot = await getDocs(q);
-                
                 let turnos = [];
-                querySnapshot.forEach((doc) => {
-                    turnos.push({ id: doc.id, ...doc.data() });
-                });
-
+                querySnapshot.forEach((doc) => turnos.push({ id: doc.id, ...doc.data() }));
+                
                 // Ordenar por hora
                 turnos.sort((a, b) => a.hora.localeCompare(b.hora));
 
                 if (turnos.length === 0) {
-                    lista.innerHTML = `<div style="text-align:center; padding: 60px; color: #94a3b8;">No hay turnos para esta fecha en la nube.</div>`;
+                    lista.innerHTML = `<div style="text-align:center; padding: 60px; color: #94a3b8;">No hay turnos para esta fecha.</div>`;
                     return;
                 }
 
                 let html = "";
                 turnos.forEach(t => {
                     const claseEstado = t.estado ? `status-${t.estado.toLowerCase()}` : 'status-pendiente';
-                    const opacity = t.estado === 'Atendido' ? 'opacity: 0.7;' : '';
                     const borderColor = t.estado === 'Atendido' ? '#22c55e' : (t.estado === 'Ausente' ? '#ef4444' : '#4db6ac');
-
+                    
                     html += `
-                    <div class="turno-card" style="${opacity} border-left: 6px solid ${borderColor};">
+                    <div class="turno-card" style="border-left: 6px solid ${borderColor};">
                         <div class="paciente-info">
                             <span style="color: var(--primary); font-weight: 800; font-size: 1.1rem; display: block;">${t.hora} hs</span>
                             <strong style="display:block; font-size: 1.1rem; color: var(--text-dark); margin: 5px 0;">${t.nombre}</strong>
-                            <span style="background:#e0f2f1; color: var(--primary-dark); padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: bold;">
-                                ${t.cobertura}
-                            </span>
+                            <span style="background:#e0f2f1; color: var(--primary-dark); padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: bold;">${t.cobertura}</span>
                             
-                            <select class="status-select ${claseEstado}" onchange="window.cambiarEstado('${t.id}', this.value, '${fecha}')">
+                            <select class="status-select ${claseEstado}" onchange="window.cambiarEstado('${t.id}', this.value)">
                                 <option value="Pendiente" ${t.estado === 'Pendiente' ? 'selected' : ''}>⏳ Pendiente</option>
                                 <option value="Atendido" ${t.estado === 'Atendido' ? 'selected' : ''}>✅ Atendido</option>
                                 <option value="Ausente" ${t.estado === 'Ausente' ? 'selected' : ''}>❌ Ausente</option>
@@ -171,51 +130,73 @@
                                 <a href="https://wa.me/${t.telefono}" target="_blank" style="text-decoration:none; font-size: 0.8rem; color: var(--whatsapp); font-weight:bold;">💬 Enviar WhatsApp</a>
                             </div>
                         </div>
-                        
                         <div class="diagnostico-area">
                             <label style="font-size: 0.7rem; color: #94a3b8; font-weight: 800; margin-bottom: 8px;">EVOLUCIÓN MÉDICA</label>
                             <textarea class="notas-evolucion" onblur="window.guardarNotas('${t.id}', this.value)" placeholder="Registrar notas de la consulta...">${t.notas || ''}</textarea>
-                            <div class="save-tag" id="tag-${t.id}" style="font-size:0.65rem; color: var(--whatsapp); text-align:right; font-weight:bold; height: 15px; margin-top: 5px;"></div>
+                            <div id="tag-${t.id}" style="font-size:0.65rem; color: var(--whatsapp); text-align:right; font-weight:bold; margin-top: 5px;"></div>
                         </div>
-
-                        <button class="btn-eliminar-pro" onclick="window.eliminarTurno('${t.id}', '${fecha}')">✕</button>
+                        <button class="btn-eliminar-pro" onclick="window.eliminarTurno('${t.id}')">✕</button>
                     </div>`;
                 });
                 lista.innerHTML = html;
             } catch (error) {
                 console.error(error);
-                lista.innerHTML = "Error al conectar con Firebase.";
+                lista.innerHTML = "Error al conectar con la base de datos.";
             }
         }
 
-        // FUNCIONES GLOBALES (para que funcionen con onclick)
-        window.cambiarEstado = async (id, nuevoEstado, fecha) => {
-            const docRef = doc(db, "turnos", id);
-            await updateDoc(docRef, { estado: nuevoEstado });
-            cargarFirebase(fecha);
+        // --- FUNCIONES GLOBALES (Window) ---
+
+        window.cambiarEstado = async (id, nuevoEstado) => {
+            try {
+                await updateDoc(doc(db, "turnos", id), { estado: nuevoEstado });
+                cargarFirebase(adminDate.value);
+            } catch (e) { console.error(e); }
         };
 
         window.guardarNotas = async (id, texto) => {
-            const docRef = doc(db, "turnos", id);
-            await updateDoc(docRef, { notas: texto });
-            const tag = document.getElementById(`tag-${id}`);
-            tag.textContent = "GUARDADO EN NUBE ✓";
-            setTimeout(() => tag.textContent = "", 2000);
+            try {
+                await updateDoc(doc(db, "turnos", id), { notas: texto });
+                const tag = document.getElementById(`tag-${id}`);
+                tag.textContent = "GUARDADO ✓";
+                setTimeout(() => tag.textContent = "", 2000);
+            } catch (e) { console.error(e); }
         };
 
-        window.eliminarTurno = async (id, fecha) => {
-            if(confirm("¿Eliminar este turno de la base de datos?")) {
-                await deleteDoc(doc(db, "turnos", id));
-                cargarFirebase(fecha);
-            }
+        window.eliminarTurno = async (id) => {
+            Swal.fire({
+                title: '¿Eliminar turno?',
+                text: "Esta acción borrará el registro de forma permanente.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#e11d48',
+                cancelButtonColor: '#cbd5e1',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    try {
+                        await deleteDoc(doc(db, "turnos", id));
+                        cargarFirebase(adminDate.value); // Recarga usando la fecha actual del selector
+                        Swal.fire({
+                            title: 'Eliminado',
+                            icon: 'success',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    } catch (e) {
+                        Swal.fire('Error', 'No se pudo eliminar.', 'error');
+                    }
+                }
+            });
         };
 
-        // Inicio
+        // Inicialización
         const hoy = new Date().toISOString().split('T')[0];
         adminDate.value = hoy;
         cargarFirebase(hoy);
-        adminDate.onchange = (e) => cargarFirebase(e.target.value);
 
+        adminDate.onchange = (e) => cargarFirebase(e.target.value);
     </script>
 </body>
 </html>
